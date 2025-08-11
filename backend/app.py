@@ -3,68 +3,52 @@
 import io
 import json
 from flask import Flask, request, send_file
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from PIL import Image
 
-# Initialize the Flask App
 app = Flask(__name__)
-# Enable Cross-Origin Resource Sharing
 CORS(app)
 
 @app.route('/api/generate', methods=['POST'])
+@cross_origin()
 def generate_image():
-    """
-    This endpoint receives image files and layout data,
-    composites them into a single image, and returns it.
-    """
+    print("Received request to generate image")
     try:
-        # --- 1. Receive Data from Frontend ---
-        # The layout is sent as a JSON string in a form field
+        # Debug information
+        print("Request headers:", dict(request.headers))
+        print("Request form keys:", list(request.form.keys()))
+        print("Request files keys:", list(request.files.keys()))
+        
         layout_data = json.loads(request.form.get('layout'))
-        # The image files are accessed from request.files
         uploaded_files = request.files
+        print("Layout data:", layout_data)
 
-        # --- 2. Create the Base Canvas ---
         canvas_width = layout_data.get('canvasWidth', 1080)
         canvas_height = layout_data.get('canvasHeight', 1350)
-        canvas_color = layout_data.get('canvasColor', 'white')
+        final_image = Image.new('RGB', (canvas_width, canvas_height), 'white')
 
-        # Create a new blank image (the canvas)
-        final_image = Image.new('RGB', (canvas_width, canvas_height), canvas_color)
-
-        # --- 3. Composite Images onto the Canvas ---
-        # Iterate through each image defined in the layout
         for item in layout_data['images']:
             image_id = item['id']
             if image_id not in uploaded_files:
-                # If an image specified in the layout wasn't uploaded, skip it
                 continue
             
-            # Open the uploaded image file
             image_file = uploaded_files[image_id]
-            img = Image.open(image_file.stream)
+            img = Image.open(image_file.stream).convert("RGBA") # Use RGBA for pasting transparent images
 
-            # Get dimensions and position from layout
-            # We use int() to ensure they are whole numbers for pixels
             width = int(item['width'])
             height = int(item['height'])
             x = int(item['x'])
             y = int(item['y'])
 
-            # Resize the image to the specified dimensions
-            # LANCZOS is a high-quality downsampling filter
             img = img.resize((width, height), Image.Resampling.LANCZOS)
             
-            # Paste the resized image onto the canvas at the specified coordinates
-            final_image.paste(img, (x, y))
+            # Paste using the image's own alpha channel as a mask
+            final_image.paste(img, (x, y), img)
 
-        # --- 4. Send the Final Image Back ---
-        # Save the final image to a memory buffer instead of a file on disk
         buf = io.BytesIO()
         final_image.save(buf, format='PNG')
-        buf.seek(0) # Go to the beginning of the buffer
+        buf.seek(0)
 
-        # Send the buffer as a file in the HTTP response
         return send_file(
             buf,
             mimetype='image/png',
@@ -73,13 +57,14 @@ def generate_image():
         )
 
     except Exception as e:
-        # Print error for debugging and return an error response
         print(f"An error occurred: {e}")
         return str(e), 500
 
+@app.route('/api/test', methods=['GET'])
+def test():
+    """Simple endpoint to test if the server is responding."""
+    return {"status": "success", "message": "Backend server is running correctly!"}, 200
 
-# To run the server:
-# In your terminal, navigate to the `backend` directory and run:
-# flask --app app run
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    print("Starting Flask server on port 8000...")
+    app.run(debug=True, port=8000)
