@@ -1,73 +1,487 @@
 /* frontend/src/App.css */
 :root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f0f2f5;
-}
-body { margin: 0; }
-.app-container {
-  display: flex;
-  padding: 24px;
-  gap: 30px;
-}
-.controls {
-  width: 320px;
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-  height: fit-content;
-}
-.canvas-container {
-  flex-grow: 1;
-  display: flex;
-  justify-content: center;
-}
-.canvas {
-  width: 540px;   /* Half of 1080px for display */
-  height: 675px;  /* Half of 1350px for display */
-  background-color: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  position: relative;
-  overflow: hidden;
-}
-/* Add this to the bottom of frontend/src/App.css */
-.image-item {
-  border: 2px dashed rgba(0, 123, 255, 0.5);
-  box-sizing: border-box;
+  --primary-color: #0095f6; /* Instagram blue */
+  --secondary-color: #8e8e8e;
+  --accent-color: #00376b;
+  --background-color: #fafafa;
+  --card-color: #ffffff;
+  --success-color: #28a745;
+  --border-color: #dbdbdb;
+  --text-color: #262626;
+  --text-secondary: #8e8e8e;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-/* Add this to the bottom of frontend/src/App.css */
-.controls button {
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body { 
+  margin: 0;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+/* App Container */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Header */
+.app-header {
+  background-color: var(--card-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 15px 20px;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header h1 {
+  color: var(--text-color);
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.tagline {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Main Content Area */
+.main-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 20px;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    flex-direction: row;
+  }
+}
+
+/* Controls Panel */
+.controls {
+  background-color: var(--card-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  padding: 20px;
   width: 100%;
-  padding: 12px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 1em;
+  max-width: 100%;
+}
+
+@media (min-width: 768px) {
+  .controls {
+    width: 300px;
+    min-width: 300px;
+  }
+}
+
+/* Step Content */
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.step-content h3 {
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+/* Template Grid */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.template-item {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.template-item:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+}
+
+.template-item.selected {
+  border: 2px solid var(--primary-color);
+  background-color: rgba(0, 149, 246, 0.1);
+}
+
+.template-preview {
+  width: 100%;
+  height: 100px;
+  background-color: white;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.template-preview-inner {
+  position: relative;
+}
+
+.template-name {
+  font-size: 12px;
+  text-align: center;
+  margin-top: 5px;
+}
+
+/* Canvas Area */
+.canvas-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  height: 0;
+  overflow: hidden;
+}
+
+.canvas-area.active {
+  opacity: 1;
+  height: auto;
+  overflow: visible;
+}
+
+.canvas {
+  position: relative;
+  background-color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin: 0 auto;
+  transition: background-color 0.3s ease;
+}
+
+.canvas.show-grid {
+  background-image: linear-gradient(rgba(200, 200, 200, 0.1) 1px, transparent 1px),
+                   linear-gradient(90deg, rgba(200, 200, 200, 0.1) 1px, transparent 1px);
+}
+
+/* Draggable Image */
+.draggable-image-container {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.draggable-image-container:hover {
+  z-index: 2;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.draggable-image-container.selected {
+  z-index: 3;
+  box-shadow: 0 0 0 2px var(--primary-color), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.draggable-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}
+
+.image-overlay {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  z-index: 2;
+}
+
+/* Text Element */
+.text-element-container {
+  position: relative;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.01);
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+}
+
+.text-element-container:hover {
+  border: 1px dashed rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+/* Edit Controls */
+.edit-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.template-selector,
+.background-controls,
+.text-controls,
+.toggle-grid,
+.save-controls,
+.nav-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-selector label,
+.background-controls label,
+.text-controls label,
+.toggle-grid label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gradient-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+/* Buttons */
+.primary-button, 
+.secondary-button,
+.tool-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.primary-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.primary-button:hover {
+  background-color: var(--accent-color);
+}
+
+.secondary-button {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+.secondary-button:hover {
+  background-color: var(--background-color);
+}
+
+.tool-button {
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+.tool-button:hover {
+  background-color: var(--border-color);
+}
+
+/* File Input */
+.file-input {
+  margin: 15px 0;
+}
+
+/* Result Section */
+.result-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.result-image-container {
+  max-width: 100%;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.result-image {
+  width: 100%;
+  height: auto;
+}
+
+.carousel-results {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.carousel-preview {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding: 10px 0;
+  scroll-snap-type: x mandatory;
+}
+
+.carousel-item {
+  scroll-snap-align: start;
+  min-width: 200px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.carousel-item img {
+  width: 100%;
+  height: auto;
+}
+
+.carousel-number {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Loading State */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  padding: 30px;
+}
+
+/* Project List */
+.projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.project-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--card-color);
+}
+
+.project-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.project-name {
+  font-weight: 500;
+}
+
+.project-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Instructions */
+.instructions {
+  background-color: rgba(0, 149, 246, 0.1);
+  padding: 12px;
+  border-radius: 4px;
+  font-size: 14px;
   margin-top: 10px;
 }
-.controls button:hover { background-color: #0056b3; }
-.controls button:disabled { background-color: #ccc; cursor: not-allowed; }
-.result {
-  margin-top: 20px;
-  border-top: 1px solid #eee;
-  padding-top: 20px;
-}
-.result-preview {
-  width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-.result a {
-  display: block;
+
+/* Offline Banner */
+.offline-banner {
+  background-color: #ffcc00;
+  color: #333;
   text-align: center;
-  padding: 10px;
-  background-color: #28a745;
-  color: white;
-  text-decoration: none;
-  border-radius: 6px;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 767px) {
+  .app-header {
+    padding: 10px;
+  }
+  
+  .main-content {
+    padding: 10px;
+  }
+  
+  .controls {
+    padding: 15px;
+  }
+  
+  .result-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .primary-button, 
+  .secondary-button {
+    width: 100%;
+  }
+  
+  .canvas-area {
+    margin-top: 15px;
+  }
 }

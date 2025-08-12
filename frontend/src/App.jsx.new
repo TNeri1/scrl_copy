@@ -1,0 +1,485 @@
+// frontend/src/App.jsx
+
+import React, { useState, useEffect } from 'react';
+import { Rnd } from 'react-rnd'; // Import Rnd
+import './App.css';
+import axios from 'axios';
+
+// Define some template layouts
+const TEMPLATES = {
+  grid2x2: {
+    name: "2×2 Grid",
+    canvasWidth: 1080,
+    canvasHeight: 1350,
+    positions: [
+      { x: 0, y: 0, width: 540, height: 675 },
+      { x: 540, y: 0, width: 540, height: 675 },
+      { x: 0, y: 675, width: 540, height: 675 },
+      { x: 540, y: 675, width: 540, height: 675 },
+    ]
+  },
+  grid3x3: {
+    name: "3×3 Grid",
+    canvasWidth: 1080, 
+    canvasHeight: 1350,
+    positions: [
+      { x: 0, y: 0, width: 360, height: 450 },
+      { x: 360, y: 0, width: 360, height: 450 },
+      { x: 720, y: 0, width: 360, height: 450 },
+      { x: 0, y: 450, width: 360, height: 450 },
+      { x: 360, y: 450, width: 360, height: 450 },
+      { x: 720, y: 450, width: 360, height: 450 },
+      { x: 0, y: 900, width: 360, height: 450 },
+      { x: 360, y: 900, width: 360, height: 450 },
+      { x: 720, y: 900, width: 360, height: 450 },
+    ]
+  },
+  carousel: {
+    name: "Seamless Carousel",
+    canvasWidth: 1080,
+    canvasHeight: 1350 * 3, // Three Instagram frames
+    positions: [
+      { x: 0, y: 0, width: 1080, height: 1350 },
+      { x: 0, y: 1350, width: 1080, height: 1350 },
+      { x: 0, y: 2700, width: 1080, height: 1350 },
+    ]
+  },
+  panoramic: {
+    name: "Panoramic Split",
+    canvasWidth: 1080 * 3, // Three frames wide
+    canvasHeight: 1350,
+    positions: [
+      { x: 0, y: 0, width: 1080, height: 1350 },
+      { x: 1080, y: 0, width: 1080, height: 1350 },
+      { x: 2160, y: 0, width: 1080, height: 1350 },
+    ]
+  },
+  freeform: {
+    name: "Freeform Canvas",
+    canvasWidth: 1080,
+    canvasHeight: 1350,
+    positions: []
+  }
+};
+
+function App() {
+  const [images, setImages] = useState([]);
+  // We need to store the original File objects to send to the backend
+  const [sourceFiles, setSourceFiles] = useState({});
+  const [generatedImageUrl, setGeneratedImageUrl] = useState(null);
+  const [generatedCarouselUrls, setGeneratedCarouselUrls] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState('freeform');
+  const [canvasWidth, setCanvasWidth] = useState(1080);
+  const [canvasHeight, setCanvasHeight] = useState(1350);
+  const [showGrid, setShowGrid] = useState(true);
+  const [currentStep, setCurrentStep] = useState(1); // 1: Upload, 2: Arrange, 3: Generate
+
+  // Apply selected template to canvas
+  const applyTemplate = (templateName) => {
+    setSelectedTemplate(templateName);
+    const template = TEMPLATES[templateName];
+    setCanvasWidth(template.canvasWidth);
+    setCanvasHeight(template.canvasHeight);
+    
+    // If there are images, reposition them according to template
+    if (images.length > 0 && template.positions.length > 0) {
+      const newImages = [...images];
+      
+      // Only reposition as many images as we have positions for
+      const imagesToPosition = Math.min(newImages.length, template.positions.length);
+      
+      for (let i = 0; i < imagesToPosition; i++) {
+        const pos = template.positions[i];
+        // Divide dimensions by 2 for the display canvas
+        newImages[i] = {
+          ...newImages[i],
+          x: pos.x / 2,
+          y: pos.y / 2,
+          width: pos.width / 2,
+          height: pos.height / 2
+        };
+      }
+      
+      setImages(newImages);
+    }
+    
+    setCurrentStep(2); // Move to arrange step
+  };
+
+  const handleFileChange = (event) => {
+    const files = Array.from(event.target.files);
+    const newImages = [];
+    const newSourceFiles = { ...sourceFiles };
+    
+    // Get the current template
+    const template = TEMPLATES[selectedTemplate];
+    const useTemplatePositions = template.positions.length > 0;
+
+    files.forEach((file, index) => {
+      const id = `image_${Date.now()}_${index}`;
+      
+      // Create an image element to get natural dimensions
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        const naturalWidth = img.width;
+        const naturalHeight = img.height;
+        
+        // Calculate aspect ratio
+        const aspectRatio = naturalWidth / naturalHeight;
+        
+        let posX = 50 + index * 20;
+        let posY = 50 + index * 20;
+        let posWidth = 300;
+        let posHeight = 200;
+        
+        // Use template positions if available and we haven't exceeded positions
+        if (useTemplatePositions && index < template.positions.length) {
+          const pos = template.positions[index];
+          posX = pos.x / 2; // Divide by 2 for display
+          posY = pos.y / 2;
+          posWidth = pos.width / 2;
+          posHeight = pos.height / 2;
+        }
+        
+        const imageObject = {
+          id: id,
+          src: img.src,
+          naturalWidth,
+          naturalHeight,
+          aspectRatio,
+          x: posX,
+          y: posY,
+          width: posWidth,
+          height: posHeight,
+        };
+        
+        setImages(prevImages => [...prevImages, imageObject]);
+      };
+      
+      newSourceFiles[id] = file; // Store the original file object
+    });
+
+    setSourceFiles({...sourceFiles, ...newSourceFiles});
+    setCurrentStep(2); // Move to arrange step after uploading
+  };
+
+  // This function updates state when an image is moved or resized
+  const onLayoutChange = (id, d, ref, preserveAspectRatio = true) => {
+    setImages(currentImages =>
+      currentImages.map(img => {
+        if (img.id === id) {
+          const updatedImg = { 
+            ...img, 
+            x: d.x, 
+            y: d.y, 
+            width: ref.offsetWidth, 
+            height: ref.offsetHeight 
+          };
+          
+          // Maintain aspect ratio if needed
+          if (preserveAspectRatio && img.aspectRatio) {
+            // Use the width to calculate the correct height
+            updatedImg.height = updatedImg.width / img.aspectRatio;
+          }
+          
+          return updatedImg;
+        }
+        return img;
+      })
+    );
+  };
+
+  const handleGenerateClick = async () => {
+    setIsLoading(true);
+    setGeneratedImageUrl(null);
+    setGeneratedCarouselUrls([]);
+
+    const formData = new FormData();
+    
+    // Use the selected template dimensions
+    const template = TEMPLATES[selectedTemplate];
+    
+    const layout = {
+      canvasWidth: template.canvasWidth,
+      canvasHeight: template.canvasHeight,
+      templateType: selectedTemplate,
+      images: images.map(img => ({
+        id: img.id,
+        x: Math.round(img.x * 2), // Multiply by 2 because our display canvas is half size
+        y: Math.round(img.y * 2),
+        width: Math.round(img.width * 2),
+        height: Math.round(img.height * 2),
+      })),
+    };
+    
+    formData.append('layout', JSON.stringify(layout));
+
+    images.forEach(img => {
+      formData.append(img.id, sourceFiles[img.id]);
+    });
+
+    try {
+      const response = await axios.post('http://localhost:8000/api/generate', formData, {
+        responseType: 'blob',
+      });
+      
+      const url = URL.createObjectURL(response.data);
+      setGeneratedImageUrl(url);
+      
+      // If this is a carousel template, also generate individual frames
+      if (selectedTemplate === 'carousel' || selectedTemplate === 'panoramic') {
+        setIsLoading(true);
+        try {
+          const carouselResponse = await axios.post(
+            'http://localhost:8000/api/generate-carousel', 
+            formData,
+            { responseType: 'blob' }
+          );
+          
+          // For carousel response, we expect a zip file with individual images
+          // We'll handle this later, for now just show the combined image
+          console.log("Carousel generation successful");
+        } catch (carouselError) {
+          console.error("Error generating carousel frames:", carouselError);
+        }
+      }
+      
+      setCurrentStep(3); // Move to results step
+    } catch (error) {
+      console.error("Error generating image:", error);
+      alert("Failed to generate image. Is the backend server running?");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to render the step-based UI
+  const renderStepContent = () => {
+    switch(currentStep) {
+      case 1:
+        return (
+          <div className="step-content">
+            <h3>Step 1: Choose a Template</h3>
+            <div className="template-grid">
+              {Object.entries(TEMPLATES).map(([key, template]) => (
+                <div 
+                  key={key} 
+                  className={`template-item ${selectedTemplate === key ? 'selected' : ''}`}
+                  onClick={() => setSelectedTemplate(key)}
+                >
+                  <div className="template-preview">
+                    {/* Simple visual representation of the template */}
+                    <div className="template-visual" style={{
+                      aspectRatio: template.canvasWidth / template.canvasHeight
+                    }}>
+                      {template.positions.map((pos, idx) => (
+                        <div 
+                          key={idx}
+                          className="template-cell"
+                          style={{
+                            left: `${(pos.x / template.canvasWidth) * 100}%`,
+                            top: `${(pos.y / template.canvasHeight) * 100}%`,
+                            width: `${(pos.width / template.canvasWidth) * 100}%`,
+                            height: `${(pos.height / template.canvasHeight) * 100}%`
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="template-name">{template.name}</div>
+                </div>
+              ))}
+            </div>
+            
+            <h3>Upload Your Photos</h3>
+            <input 
+              type="file" 
+              multiple 
+              onChange={handleFileChange} 
+              accept="image/*" 
+              className="file-input"
+            />
+            
+            <button 
+              onClick={() => applyTemplate(selectedTemplate)} 
+              className="primary-button"
+              disabled={images.length === 0}
+            >
+              Apply Template & Continue
+            </button>
+          </div>
+        );
+        
+      case 2:
+        return (
+          <div className="step-content">
+            <h3>Step 2: Arrange Your Photos</h3>
+            
+            <div className="edit-controls">
+              <div className="template-selector">
+                <label>Template:</label>
+                <select 
+                  value={selectedTemplate}
+                  onChange={(e) => applyTemplate(e.target.value)}
+                >
+                  {Object.entries(TEMPLATES).map(([key, template]) => (
+                    <option key={key} value={key}>{template.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="toggle-grid">
+                <label>
+                  <input 
+                    type="checkbox" 
+                    checked={showGrid} 
+                    onChange={() => setShowGrid(!showGrid)}
+                  />
+                  Show Grid
+                </label>
+              </div>
+              
+              <button 
+                onClick={() => setCurrentStep(1)}
+                className="secondary-button"
+              >
+                Back to Templates
+              </button>
+              
+              <button
+                onClick={handleGenerateClick}
+                className="primary-button"
+                disabled={images.length === 0 || isLoading}
+              >
+                {isLoading ? 'Generating...' : 'Generate Collage'}
+              </button>
+            </div>
+          </div>
+        );
+        
+      case 3:
+        return (
+          <div className="step-content result-step">
+            <h3>Your SCRL Gallery is Ready!</h3>
+            
+            {generatedImageUrl && (
+              <div className="result">
+                <div className="result-image-container">
+                  <img 
+                    src={generatedImageUrl} 
+                    alt="Generated collage" 
+                    className="result-preview" 
+                  />
+                </div>
+                
+                <div className="result-actions">
+                  <a 
+                    href={generatedImageUrl} 
+                    download={`scrl-${selectedTemplate}-collage.png`}
+                    className="download-button"
+                  >
+                    Download Image
+                  </a>
+                  
+                  {(selectedTemplate === 'carousel' || selectedTemplate === 'panoramic') && (
+                    <div className="carousel-note">
+                      <p>This template creates a multi-image carousel for Instagram.</p>
+                      <p>For the best experience, download the image and split it into individual frames.</p>
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={() => {
+                      setCurrentStep(2);
+                      setGeneratedImageUrl(null);
+                    }}
+                    className="secondary-button"
+                  >
+                    Edit Again
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setImages([]);
+                      setSourceFiles({});
+                      setGeneratedImageUrl(null);
+                      setGeneratedCarouselUrls([]);
+                      setCurrentStep(1);
+                      setSelectedTemplate('freeform');
+                    }}
+                    className="secondary-button"
+                  >
+                    Start New Project
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+        
+      default:
+        return <div>Unknown step</div>;
+    }
+  };
+
+  return (
+    <div className="app-container">
+      <header className="app-header">
+        <h1>SCRL Gallery</h1>
+        <p className="tagline">Create stunning Instagram carousels and collages</p>
+      </header>
+      
+      <div className="main-content">
+        <div className="controls">
+          {renderStepContent()}
+        </div>
+        
+        <div className={`canvas-area ${currentStep === 2 ? 'active' : ''}`}>
+          <div 
+            className={`canvas ${showGrid ? 'show-grid' : ''}`}
+            style={{
+              width: canvasWidth / 2, // Half size for display
+              height: canvasHeight / 2,
+              backgroundSize: `${(1080/10)/2}px ${(1350/10)/2}px` // Grid size
+            }}
+          >
+            {images.map((image, index) => (
+              <Rnd
+                key={image.id}
+                default={{
+                  x: image.x,
+                  y: image.y,
+                  width: image.width,
+                  height: image.height
+                }}
+                position={{ x: image.x, y: image.y }}
+                size={{ width: image.width, height: image.height }}
+                onDragStop={(e, d) => onLayoutChange(image.id, d, e.target)}
+                onResizeStop={(e, direction, ref, delta, position) => {
+                  onLayoutChange(image.id, position, ref);
+                }}
+                bounds=".canvas"
+                className="draggable-image-container"
+              >
+                <div className="image-overlay">
+                  <span className="image-number">{index + 1}</span>
+                </div>
+                <img
+                  src={image.src}
+                  alt={`Uploaded ${index + 1}`}
+                  className="draggable-image"
+                  draggable="false"
+                />
+              </Rnd>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

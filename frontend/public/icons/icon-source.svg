@@ -1,0 +1,9 @@
+<!-- Simple SVG icon for SCRL Gallery -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="100%" height="100%" fill="#3498db"/>
+  <rect x="128" y="128" width="128" height="128" fill="#ffffff"/>
+  <rect x="256" y="128" width="128" height="128" fill="#e74c3c"/>
+  <rect x="128" y="256" width="128" height="128" fill="#2ecc71"/>
+  <rect x="256" y="256" width="128" height="128" fill="#f39c12"/>
+  <text x="256" y="64" font-family="Arial" font-size="40" text-anchor="middle" fill="#ffffff">SCRL Gallery</text>
+</svg>

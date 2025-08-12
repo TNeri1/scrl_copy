@@ -29,3 +29,4 @@ dist/
 
 # Coverage directory
 coverage/
+.vercel
